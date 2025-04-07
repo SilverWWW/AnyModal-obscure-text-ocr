@@ -177,6 +177,7 @@ class MultiModalModel(nn.Module):
             attention_mask=torch.ones(input_embeddings.shape[:2], device=self.device),
             max_new_tokens=max_new_tokens,
             eos_token_id=self.language_model.config.eos_token_id,
+            pad_token_id=self.language_model.config.eos_token_id,
             **kwargs
         )
 
