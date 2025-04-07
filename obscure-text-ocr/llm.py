@@ -78,7 +78,7 @@ if __name__ == '__main__':
     # Load GPT-2 model and tokenizer for testing
     tokenizer, model = get_llm(
         "openai-community/gpt2", 
-        access_token='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'
+        access_token='GET_YOUR_OWN_TOKEN_FROM_HUGGINGFACE'
     )
 
     # Test text generation

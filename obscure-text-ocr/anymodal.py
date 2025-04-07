@@ -246,6 +246,6 @@ class MultiModalModel(nn.Module):
         Parameters:
         - kwargs: Additional arguments for loading.
         """
-        self.input_tokenizer = torch.load(f'{model_dir}/input_tokenizer.pt')
+        self.input_tokenizer = torch.load(f'{model_dir}/input_tokenizer.pt', weights_only=False)
         self.language_model.load_adapter(f'{model_dir}/language_model')
         

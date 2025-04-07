@@ -12,7 +12,7 @@ from torch.amp import GradScaler
 # Load language model and tokenizer
 llm_tokenizer, llm_model = llm.get_llm(
     "meta-llama/Llama-3.2-1B", 
-    access_token='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',   
+    access_token='filler',   
     use_peft=True
 )
 llm_hidden_size = llm.get_hidden_size(llm_tokenizer, llm_model)
@@ -25,20 +25,34 @@ dataset_name = "MiXaiLL76/TextOCR_OCR"
 image_processor, vision_model, vision_hidden_size = vision.get_image_encoder('google/siglip-so400m-patch14-384', use_peft=False)
 
 # Load dataset
-train_dataset = vision.ImageDataset(dataset_name, image_processor, name = None, split = 'train')
-val_dataset = vision.ImageDataset(dataset_name, image_processor, name = None, split = 'test')
+full_train_dataset = vision.ImageDataset(dataset_name, image_processor, name = None, split = 'train')
+full_test_dataset = vision.ImageDataset(dataset_name, image_processor, name = None, split = 'test')
 
-# get subset of the dataset
-subset_ratio = 0.5
+train_val_ratio = 0.8  # 80% train, 20% validation from original train split
+train_size = int(train_val_ratio * len(full_train_dataset))
+val_size = len(full_train_dataset) - train_size
 
-train_dataset = torch.utils.data.Subset(train_dataset, range(int(subset_ratio * len(train_dataset))))
-val_dataset = torch.utils.data.Subset(val_dataset, range(int(subset_ratio * len(val_dataset))))
+all_indices = list(range(len(full_train_dataset)))
+torch.manual_seed(42)
+random_indices = torch.randperm(len(all_indices)).tolist()
+
+train_indices = random_indices[:train_size]
+val_indices = random_indices[train_size:]
+
+train_dataset = torch.utils.data.Subset(full_train_dataset, train_indices)
+val_dataset = torch.utils.data.Subset(full_train_dataset, val_indices)
+test_dataset = full_test_dataset
+
+print(f"New training set size: {len(train_dataset)}")
+print(f"New validation set size: {len(val_dataset)}")
+print(f"New test set size: {len(test_dataset)}")
 
 
 # DataLoader configuration
 batch_size = 4
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 train_size = len(train_loader)
 val_size = len(val_loader)
@@ -108,30 +122,5 @@ for epoch in range(num_epochs):
                 print("Generated Text: ", multimodal_model.generate(sample['input'], max_new_tokens=120))
             
     multimodal_model.train()
-    os.makedirs(f"obscure_text_ocr_{epoch+1}", exist_ok=True)
-    multimodal_model._save_model(f"obscure_text_ocr_{epoch+1}")
-
-
-# evaluate on test set
-# test_dataset = vision.ImageDataset(dataset_name, image_processor, name = None, split = 'test')
-# test_loader = DataLoader(val_loader, batch_size=batch_size, shuffle=False)
-
-multimodal_model.eval()
-test_losses = []
-
-with torch.no_grad():
-    for batch_idx, batch in tqdm(enumerate(val_loader), desc=f"Test", leave=False):
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
-            logits, loss = multimodal_model(batch)
-        test_losses.append(loss.item())
-    
-    avg_test_loss = sum(test_losses) / len(test_losses)
-    print(f"Test Loss: {avg_test_loss:.4f}")
-
-    # Decode a random test sample
-    for _ in range(5):
-        sample_idx = np.random.randint(len(val_dataset))
-        sample = val_dataset[sample_idx]
-        print("Actual Text: ", sample['text'])
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
-            print("Generated Text: ", multimodal_model.generate(sample['input'], max_new_tokens=120))
+    os.makedirs(f"obscure_text_ocr_again_{epoch+1}", exist_ok=True)
+    multimodal_model._save_model(f"obscure_text_ocr_again_{epoch+1}")
